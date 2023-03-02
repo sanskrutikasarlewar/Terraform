@@ -1,0 +1,132 @@
+provider "aws" {
+  access_key = "AKIA5ZV5PHQL7X6HMWUN"
+  secret_key = "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"
+  region     = "ap-southeast-2"
+}
+/*=========================================================vpc==============================================================*/
+resource "aws_vpc" "this" {
+  cidr_block       = "10.0.0.0/16"
+  instance_tenancy = "default"
+  tags = {
+    Name = "my-vpc"
+  }
+}
+/*-------------public Subnet-1---------------*/
+resource "aws_subnet" "public-subnet-1" {
+  vpc_id     = aws_vpc.this.id
+  cidr_block = "10.0.1.0/24"
+  availability_zone = "ap-southeast-2a"
+  tags = {
+    Name = "public-subnet-1"
+  }
+}
+/*-------------public Subnet-2---------------*/
+resource "aws_subnet" "public-subnet-2" {
+  vpc_id     = aws_vpc.this.id
+  cidr_block = "10.0.2.0/24"
+  availability_zone = "ap-southeast-2b"
+  tags = {
+    Name = "public-subnet-2"
+  }
+}
+/*------------Internet Gateway-----------------*/
+resource "aws_internet_gateway" "igw" {
+  vpc_id = aws_vpc.this.id
+  tags = {
+    Name = "internet-gateway"
+  }
+}
+/*-------Public RouteTable-------------------*/
+resource "aws_route_table" "public-rt" {
+  vpc_id = aws_vpc.this.id
+  route {
+    cidr_block = "0.0.0.0/0"
+    gateway_id = aws_internet_gateway.igw.id
+  }
+  tags = {
+    Name = "public-rt"
+  }
+}
+
+resource "aws_route_table_association" "public-subnet-1"{
+    subnet_id = aws_subnet.public-subnet-1.id
+    //subnet_id = aws_subnet.public-subnet-2.id
+    route_table_id = aws_route_table.public-rt.id
+}
+resource "aws_route_table_association" "public-subnet-2"{
+    //subnet_id = aws_subnet.public-subnet-1.id
+    subnet_id = aws_subnet.public-subnet-2.id
+    route_table_id = aws_route_table.public-rt.id
+}
+
+
+
+/*-------------Private Subnet---------------*/
+resource "aws_subnet" "private-subnet-1" {
+  vpc_id     = aws_vpc.this.id
+  cidr_block = "10.0.3.0/24"
+  availability_zone = "ap-southeast-2a"
+  tags = {
+    Name = "private-subnet-1"
+  }
+}
+
+resource "aws_subnet" "private-subnet-2" {
+  vpc_id     = aws_vpc.this.id
+  cidr_block = "10.0.4.0/24"
+  availability_zone = "ap-southeast-2b"
+  tags = {
+    Name = "private-subnet-2"
+  }
+}
+
+/*--------Elastic IP-------------*/
+resource "aws_eip" "Elastic-IP" {
+  vpc = true
+  tags = {
+    Name = "Elastic-IP"
+  }
+}
+/*--------------------NAT GAteway----------------------*/
+resource "aws_nat_gateway" "Nat" {
+  allocation_id = aws_eip.Elastic-IP.id
+  subnet_id     = aws_subnet.public-subnet-1.id
+  tags = {
+    Name = "gw-NAT"
+  }
+  # To ensure proper ordering, it is recommended to add an explicit dependency
+  # on the Internet Gateway for the VPC.
+  depends_on = [aws_internet_gateway.igw]
+}
+
+/*-------Private RouteTable-------------------*/
+resource "aws_route_table" "private-rt" {
+  vpc_id = aws_vpc.this.id
+  route {
+    cidr_block = "0.0.0.0/0"
+    gateway_id = aws_nat_gateway.Nat.id
+  }
+  tags = {
+    Name = "private-rt"
+  }
+}
+resource "aws_route_table_association" "private-subnet-1"{
+    subnet_id = aws_subnet.private-subnet-1.id
+    //subnet_id = aws_subnet.private-subnet-2.id
+    route_table_id = aws_route_table.private-rt.id
+}
+resource "aws_route_table_association" "private-subnet-2"{
+    //subnet_id = aws_subnet.private-subnet-1.id
+    subnet_id = aws_subnet.private-subnet-2.id
+    route_table_id = aws_route_table.private-rt.id
+}
+
+/*========================================EC2=============================================================*/
+
+resource "aws_instance" "terra-1" {
+  ami           = "ami-0481e030b74b5ed98"
+  instance_type = "t2.micro"
+    tags = {
+        Name = "insta-1"
+    }
+}
