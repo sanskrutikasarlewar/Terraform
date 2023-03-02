@@ -1,0 +1,17 @@
+provider "aws" {
+  access_key = "AWS_Access_Key"
+  secret_key = "AWS_Secret_Key"
+  region     = "ap-southeast-2"
+}
+resource "aws_instance" "terr_instance" {
+  ami           = "ami-0481e030b74b5ed98"
+  instance_type = "t2.micro"
+    tags = {
+        Name = "my-instance"
+    }
+}
+
+resource "aws_iam_user" "demo" {
+  count = 10
+  name = "user1.${count.index}"
+}
